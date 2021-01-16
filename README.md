@@ -5,9 +5,7 @@
 ```
 $ git clone --recursive https://github.com/Digilent/Eclypse-Z7-SW.git -b zmod_adc_dac/master
 $ ORIG=./Eclypse-Z7-SW ./copy.sh
-$ cd src
-$ patch -p1 < ../src.patch
-$ cd ..
+$ (cd src; patch -p1 < ../src.patch)
 $ mkdir build
 $ cd build
 $ cmake ../src

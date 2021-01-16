@@ -10,10 +10,11 @@ src/libaxidma.c
 src/libaxidma.h
 src/reg.c
 src/reg.h
+src/utils.c
+src/utils.h
 src/zmod.cpp
 src/zmod.h
 src/zmoddac1411.cpp
 src/zmoddac1411.h
-src/utils.c
-src/utils.h
-
+src/zmodadc1410.cpp
+src/zmodadc1410.h

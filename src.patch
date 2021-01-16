@@ -1,6 +1,6 @@
 diff -upr src.orig/dma.c src/dma.c
 --- src.orig/dma.c	2021-01-16 04:10:33.000000000 +0000
-+++ src/dma.c	2021-01-16 04:16:10.000000000 +0000
++++ src/dma.c	2021-01-16 04:45:17.000000000 +0000
 @@ -14,8 +14,8 @@
  #include <dirent.h>
  #include <string.h>
@@ -14,7 +14,7 @@ diff -upr src.orig/dma.c src/dma.c
  /**
 diff -upr src.orig/dma.h src/dma.h
 --- src.orig/dma.h	2021-01-16 04:10:33.000000000 +0000
-+++ src/dma.h	2021-01-16 04:11:15.000000000 +0000
++++ src/dma.h	2021-01-16 04:45:17.000000000 +0000
 @@ -10,7 +10,7 @@
  #define DMA_H_
  
@@ -26,7 +26,7 @@ diff -upr src.orig/dma.h src/dma.h
   * Direction of a DMA transfer.
 diff -upr src.orig/flash.c src/flash.c
 --- src.orig/flash.c	2021-01-16 04:10:33.000000000 +0000
-+++ src/flash.c	2021-01-16 04:16:22.000000000 +0000
++++ src/flash.c	2021-01-16 04:45:17.000000000 +0000
 @@ -18,7 +18,7 @@
  #include <sys/ioctl.h>
  #include <linux/i2c-dev.h>
@@ -38,7 +38,7 @@ diff -upr src.orig/flash.c src/flash.c
  #define I2C_DEVICES_DIRECTORY 	"/sys/bus/i2c/devices"
 diff -upr src.orig/reg.c src/reg.c
 --- src.orig/reg.c	2021-01-16 04:10:33.000000000 +0000
-+++ src/reg.c	2021-01-16 04:16:45.000000000 +0000
++++ src/reg.c	2021-01-16 04:45:17.000000000 +0000
 @@ -23,7 +23,7 @@ extern "C" {
  #include <signal.h>
  #include <stdlib.h>
@@ -48,9 +48,167 @@ diff -upr src.orig/reg.c src/reg.c
  
  #define MAX_UIO_DEVICES 16
  #define MAX_UIO_MAPS 16
+diff -upr src.orig/zmodadc1410.cpp src/zmodadc1410.cpp
+--- src.orig/zmodadc1410.cpp	2021-01-16 04:34:42.000000000 +0000
++++ src/zmodadc1410.cpp	2021-01-16 05:36:46.000000000 +0000
+@@ -53,12 +53,13 @@ ZMODADC1410::ZMODADC1410(uintptr_t baseA
+ * @return the pointer to the allocated buffer
+ *
+ */
+-uint32_t* ZMODADC1410::allocChannelsBuffer(size_t &length) {
++unsigned long long ZMODADC1410::allocChannelsBuffer(size_t &length) {
+ 	if(length > ZMODADC1410_MAX_BUFFER_LEN)
+ 	{
+ 		length = ZMODADC1410_MAX_BUFFER_LEN;
+ 	}
+-	return (uint32_t *)ZMOD::allocDMABuffer(length * sizeof(uint32_t));
++	uint32_t *buf = (uint32_t *)ZMOD::allocDMABuffer(length * sizeof(uint32_t));
++	return (unsigned long long)buf;
+ }
+ 
+ /**
+@@ -69,7 +70,8 @@ uint32_t* ZMODADC1410::allocChannelsBuff
+ *
+ *
+ */
+-void ZMODADC1410::freeChannelsBuffer(uint32_t *buf, size_t length) {
++void ZMODADC1410::freeChannelsBuffer(unsigned long long ptr, size_t length) {
++	uint32_t *buf = (uint32_t*)ptr;
+ 	ZMOD::freeDMABuffer(buf, length * sizeof(uint32_t));
+ }
+ /**
+@@ -271,10 +273,10 @@ void ZMODADC1410::stop()
+  *
+  * @return 0 on success, any other number on failure
+  */
+-uint8_t ZMODADC1410::acquireTriggeredPolling(uint32_t* buffer, uint8_t channel, uint32_t level,
++uint8_t ZMODADC1410::acquireTriggeredPolling(unsigned long long ptr, uint8_t channel, uint32_t level,
+ 		uint32_t edge, uint32_t window, size_t length)
+ {
+-	return acquirePolling(buffer, channel, 0, level, edge, window, length);
++	return acquirePolling((uint32_t*)ptr, channel, 0, level, edge, window, length);
+ }
+ 
+ /**
+@@ -288,9 +290,9 @@ uint8_t ZMODADC1410::acquireTriggeredPol
+  *
+  * @return 0 on success, any other number on failure
+  */
+-uint8_t ZMODADC1410::acquireImmediatePolling(uint32_t* buffer, size_t &length)
++uint8_t ZMODADC1410::acquireImmediatePolling(unsigned long long ptr, size_t &length)
+ {
+-	return acquirePolling(buffer, 0, 1, 0, 0, 0, length);
++	return acquirePolling((uint32_t*)ptr, 0, 1, 0, 0, 0, length);
+ }
+ 
+ #ifndef LINUX_APP
+@@ -362,10 +364,10 @@ uint8_t ZMODADC1410::acquireInterrupt(ui
+  *
+  * @return 0 on success, any other number on failure
+  */
+-uint8_t ZMODADC1410::acquireTriggeredInterrupt(uint32_t* buffer, uint8_t channel, uint32_t level,
++uint8_t ZMODADC1410::acquireTriggeredInterrupt(unsigned long long ptr, uint8_t channel, uint32_t level,
+ 		uint32_t edge, uint32_t window, size_t length)
+ {
+-	return acquireInterrupt(buffer, channel, 0, level, edge, window, length);
++	return acquireInterrupt((uint32_t*)ptr, channel, 0, level, edge, window, length);
+ }
+ 
+ /**
+@@ -382,9 +384,9 @@ uint8_t ZMODADC1410::acquireTriggeredInt
+  *
+  * @return 0 on success, any other number on failure
+  */
+-uint8_t ZMODADC1410::acquireImmediateInterrupt(uint32_t* buffer, uint8_t channel, size_t length)
++uint8_t ZMODADC1410::acquireImmediateInterrupt(unsigned long long ptr, uint8_t channel, size_t length)
+ {
+-	return acquireInterrupt(buffer, channel, 1, 0, 0, 0, length);
++	return acquireInterrupt((uint32_t*)ptr, channel, 1, 0, 0, 0, length);
+ }
+ 
+ #endif //LINUX_APP
+@@ -486,10 +488,10 @@ uint8_t ZMODADC1410::autoTestRamp(uint8_
+ 	usleep(1000);
+ 
+ 	// allocate buffer
+-	buf = allocChannelsBuffer(length);
++	buf = (uint32_t*)allocChannelsBuffer(length);
+ 
+ 	// perform the acquisition
+-	acquireTriggeredPolling(buf, channel, level,	edge, window, length);
++	acquireTriggeredPolling((unsigned long long)buf, channel, level,	edge, window, length);
+ 
+ 	// compare the acquired data vs expected data
+ 	for (uint32_t i = 0; i < length; i++)
+@@ -520,7 +522,7 @@ uint8_t ZMODADC1410::autoTestRamp(uint8_
+ 	sendCommands(sentCommands1, sentCommandsLength1);
+ 
+ 	// free buffer
+-	freeChannelsBuffer(buf, length);
++	freeChannelsBuffer((unsigned long long)buf, length);
+ 
+ 	// wait for hardware reconfiguration
+ 	usleep(1000);
+@@ -628,4 +630,7 @@ float ZMODADC1410::getVoltFromSignedRaw(
+ 	return fval;
+ }
+ 
+-
++uint32_t ZMODADC1410::getData(unsigned long long ptr, int index) {
++	uint32_t *buf = (uint32_t*)ptr;
++	return buf[index];
++}
+diff -upr src.orig/zmodadc1410.h src/zmodadc1410.h
+--- src.orig/zmodadc1410.h	2021-01-16 04:34:42.000000000 +0000
++++ src/zmodadc1410.h	2021-01-16 05:34:24.000000000 +0000
+@@ -6,7 +6,7 @@
+  * @brief File containing function definitions of the ZMOD ADC1410 specific methods.
+  */
+ 
+-#include "../Zmod/zmod.h"
++#include "zmod.h"
+ 
+ #ifndef _ZMODADC1410_H
+ #define  _ZMODADC1410_H
+@@ -92,8 +92,8 @@ protected:
+ 
+ public:
+ 	ZMODADC1410(uintptr_t baseAddress, uintptr_t dmaAddress, uintptr_t iicAddress, uintptr_t flashAddress, int zmodInterrupt, int dmaInterrupt);
+-	uint32_t* allocChannelsBuffer(size_t &length);
+-	void freeChannelsBuffer(uint32_t *buf, size_t length);
++	unsigned long long allocChannelsBuffer(size_t &length);
++	void freeChannelsBuffer(unsigned long long ptr, size_t length);
+ 	uint16_t channelData(uint8_t channel, uint32_t data);
+ 	int16_t signedChannelData(uint8_t channel, uint32_t data);
+ 
+@@ -106,11 +106,11 @@ public:
+ 	void start();
+ 	void stop();
+ 
+-	uint8_t acquireTriggeredPolling(uint32_t* buffer, uint8_t channel, uint32_t level, uint32_t edge, uint32_t window, size_t length);
+-	uint8_t acquireImmediatePolling(uint32_t* buffer, size_t &length);
++	uint8_t acquireTriggeredPolling(unsigned long long ptr, uint8_t channel, uint32_t level, uint32_t edge, uint32_t window, size_t length);
++	uint8_t acquireImmediatePolling(unsigned long long ptr, size_t &length);
+ #ifndef LINUX_APP
+-	uint8_t acquireTriggeredInterrupt(uint32_t* buffer, uint8_t channel, uint32_t level, uint32_t edge, uint32_t window, size_t length);
+-	uint8_t acquireImmediateInterrupt(uint32_t* buffer, uint8_t channel, size_t length);
++	uint8_t acquireTriggeredInterrupt(unsigned long long ptr, uint8_t channel, uint32_t level, uint32_t edge, uint32_t window, size_t length);
++	uint8_t acquireImmediateInterrupt(unsigned long long ptr, uint8_t channel, size_t length);
+ #endif //LINUX_APP
+ 
+ 
+@@ -126,6 +126,8 @@ public:
+ 	void setCalibValues(uint8_t channel, uint8_t gain, float valG, float valA);
+ 
+ 	float getVoltFromSignedRaw(int32_t raw, uint8_t gain);
++    
++	uint32_t getData(unsigned long long ptr, int index);
+ };
+ 
+ #endif
 diff -upr src.orig/zmoddac1411.cpp src/zmoddac1411.cpp
 --- src.orig/zmoddac1411.cpp	2021-01-16 04:10:33.000000000 +0000
-+++ src/zmoddac1411.cpp	2021-01-16 04:14:26.000000000 +0000
++++ src/zmoddac1411.cpp	2021-01-16 04:45:17.000000000 +0000
 @@ -51,12 +51,13 @@ ZMODDAC1411::ZMODDAC1411(uintptr_t baseA
  * @return the pointer to the allocated buffer
  *
@@ -99,7 +257,7 @@ diff -upr src.orig/zmoddac1411.cpp src/zmoddac1411.cpp
 +}
 diff -upr src.orig/zmoddac1411.h src/zmoddac1411.h
 --- src.orig/zmoddac1411.h	2021-01-16 04:10:33.000000000 +0000
-+++ src/zmoddac1411.h	2021-01-16 04:15:19.000000000 +0000
++++ src/zmoddac1411.h	2021-01-16 04:45:17.000000000 +0000
 @@ -6,7 +6,7 @@
   * @brief File containing function definitions of the ZMOD DAC1411 specific methods.
   */
