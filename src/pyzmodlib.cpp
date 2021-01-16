@@ -4,7 +4,7 @@
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(zmoddac1411, p)
+PYBIND11_MODULE(pyzmodlib, p)
 {
     py::class_<ZMODDAC1411>(p, "ZMODDAC1411")
         .def(py::init<unsigned int, unsigned int, unsigned int, unsigned int, int>())

@@ -1,4 +1,4 @@
-from zmoddac1411 import ZMODDAC1411
+from pyzmodlib import ZMODDAC1411
 
 TRANSFER_LEN = 0x400
 IIC_BASE_ADDR = 0xE0005000
