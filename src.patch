@@ -1,0 +1,136 @@
+diff -upr src.orig/dma.c src/dma.c
+--- src.orig/dma.c	2021-01-16 04:10:33.000000000 +0000
++++ src/dma.c	2021-01-16 04:16:10.000000000 +0000
+@@ -14,8 +14,8 @@
+ #include <dirent.h>
+ #include <string.h>
+ 
+-#include "../../dma.h"
+-#include "../utils.h"
++#include "dma.h"
++#include "utils.h"
+ #include "libaxidma.h"
+ 
+ /**
+diff -upr src.orig/dma.h src/dma.h
+--- src.orig/dma.h	2021-01-16 04:10:33.000000000 +0000
++++ src/dma.h	2021-01-16 04:11:15.000000000 +0000
+@@ -10,7 +10,7 @@
+ #define DMA_H_
+ 
+ #include <stdint.h>
+-
++#include <stddef.h>
+ 
+ /**
+  * Direction of a DMA transfer.
+diff -upr src.orig/flash.c src/flash.c
+--- src.orig/flash.c	2021-01-16 04:10:33.000000000 +0000
++++ src/flash.c	2021-01-16 04:16:22.000000000 +0000
+@@ -18,7 +18,7 @@
+ #include <sys/ioctl.h>
+ #include <linux/i2c-dev.h>
+ 
+-#include "../utils.h"
++#include "utils.h"
+ 
+ //Linux I2c specific defines
+ #define I2C_DEVICES_DIRECTORY 	"/sys/bus/i2c/devices"
+diff -upr src.orig/reg.c src/reg.c
+--- src.orig/reg.c	2021-01-16 04:10:33.000000000 +0000
++++ src/reg.c	2021-01-16 04:16:45.000000000 +0000
+@@ -23,7 +23,7 @@ extern "C" {
+ #include <signal.h>
+ #include <stdlib.h>
+ 
+-#include "../../reg.h"
++#include "reg.h"
+ 
+ #define MAX_UIO_DEVICES 16
+ #define MAX_UIO_MAPS 16
+diff -upr src.orig/zmoddac1411.cpp src/zmoddac1411.cpp
+--- src.orig/zmoddac1411.cpp	2021-01-16 04:10:33.000000000 +0000
++++ src/zmoddac1411.cpp	2021-01-16 04:14:26.000000000 +0000
+@@ -51,12 +51,13 @@ ZMODDAC1411::ZMODDAC1411(uintptr_t baseA
+ * @return the pointer to the allocated buffer
+ *
+ */
+-uint32_t* ZMODDAC1411::allocChannelsBuffer(size_t &length) {
++unsigned long long ZMODDAC1411::allocChannelsBuffer(size_t &length) {
+ 	if(length > ZmodDAC1411_MAX_BUFFER_LEN)
+ 	{
+ 		length = ZmodDAC1411_MAX_BUFFER_LEN;
+ 	}
+-	return (uint32_t *)ZMOD::allocDMABuffer(length * sizeof(uint32_t));
++	uint32_t* buf = (uint32_t *)ZMOD::allocDMABuffer(length * sizeof(uint32_t));
++	return (unsigned long long)buf;
+ }
+ 
+ /**
+@@ -67,7 +68,8 @@ uint32_t* ZMODDAC1411::allocChannelsBuff
+ *
+ *
+ */
+-void ZMODDAC1411::freeChannelsBuffer(uint32_t *buf, size_t length) {
++void ZMODDAC1411::freeChannelsBuffer(unsigned long long ptr, size_t length) {
++	uint32_t *buf = (uint32_t*)ptr;
+ 	ZMOD::freeDMABuffer(buf, length * sizeof(uint32_t));
+ }
+ 
+@@ -122,8 +124,9 @@ void ZMODDAC1411::resetOutputCounter()
+ *
+ * @return 0 on success, any other number on failure
+ */
+-uint8_t ZMODDAC1411::setData(uint32_t* buffer, size_t &length)
++uint8_t ZMODDAC1411::setData(unsigned long long ptr, size_t &length)
+ {
++	uint32_t* buffer = (uint32_t*)ptr;
+ 	uint8_t Status;
+ 	if(length > ZmodDAC1411_MAX_BUFFER_LEN)
+ 	{
+@@ -314,3 +317,8 @@ int32_t ZMODDAC1411::getSignedRawFromVol
+ 	}
+ 	return raw;
+ }
++
++void ZMODDAC1411::putData(unsigned long long ptr, int index, uint32_t value) {
++	uint32_t *buf = (uint32_t*)ptr;
++	buf[index] = value;
++}
+diff -upr src.orig/zmoddac1411.h src/zmoddac1411.h
+--- src.orig/zmoddac1411.h	2021-01-16 04:10:33.000000000 +0000
++++ src/zmoddac1411.h	2021-01-16 04:15:19.000000000 +0000
+@@ -6,7 +6,7 @@
+  * @brief File containing function definitions of the ZMOD DAC1411 specific methods.
+  */
+ 
+-#include "../Zmod/zmod.h"
++#include "zmod.h"
+ 
+ #ifndef _ZMODDAC1411_H
+ #define  _ZMODDAC1411_H
+@@ -77,13 +77,13 @@ protected:
+ public:
+ 	ZMODDAC1411(uintptr_t baseAddress, uintptr_t dmaAddress, uintptr_t iicAddress, uintptr_t flashAddress, int dmaInterrupt);
+ 
+-	uint32_t* allocChannelsBuffer(size_t &length);
+-	void freeChannelsBuffer(uint32_t *buf, size_t length);
++	unsigned long long allocChannelsBuffer(size_t &length);
++	void freeChannelsBuffer(unsigned long long ptr, size_t length);
+ 	uint32_t arrangeChannelData(uint8_t channel, uint16_t data);
+ 	uint32_t arrangeSignedChannelData(uint8_t channel, int16_t data);
+ 
+ 	void setOutputSampleFrequencyDivider(uint16_t val);
+-	uint8_t setData(uint32_t* buffer, size_t &length);
++	uint8_t setData(unsigned long long ptr, size_t &length);
+ 	void setGain(uint8_t channel, uint8_t gain);
+ 
+ 	void start();
+@@ -98,6 +98,7 @@ public:
+ 	void setCalibValues(uint8_t channel, uint8_t gain, float valG, float valA);
+ 
+ 	int32_t getSignedRawFromVolt(float voltValue, uint8_t gain);
++	void putData(unsigned long long ptr, int index, uint32_t value);
+ };
+ 
+ #endif
