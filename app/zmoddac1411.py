@@ -15,7 +15,7 @@ def dacRampDemo(offset, amplitude, step, channel, frequencyDivider, gain):
 
     length = int(amplitude/step) << 2
     if (length > ((1<<14) - 1)):
-	# limit the length to maximum buffer size (1<<14 - 1)
+        # limit the length to maximum buffer size (1<<14 - 1)
         length = ((1<<14) - 1)
         # adjust step
         step = amplitude/(length>>2)
